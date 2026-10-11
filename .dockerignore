@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+data/
+backups/
+node_modules/
+dist/
+coverage/
+docs/
+tests/
+scopes_of_work/
+action_plans/
+testing_plans/
+*.md
+.git/
+.gitignore

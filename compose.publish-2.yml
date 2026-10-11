@@ -1,0 +1,5 @@
+# Added by `make up` when APP_BIND_ADDRESSES lists a second address.
+services:
+  app:
+    ports:
+      - '${APP_PUBLISH_2:?}:${APP_PORT:-8400}:${APP_PORT:-8400}'

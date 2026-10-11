@@ -1,0 +1,46 @@
+{
+  "name": "calendar-agent",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Slack bot answering \"when is the owner available?\" from Cal.com free/busy data. Read only, free/busy only.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "start": "node dist/index.js",
+    "dev": "node --env-file=.env --import tsx src/index.ts",
+    "test": "vitest run",
+    "test:live": "LIVE=1 vitest run",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/formbody": "^9.0.1",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
+    "@slack/bolt": "^5.1.0",
+    "@slack/oauth": "^4.0.0",
+    "@slack/web-api": "^8.2.0",
+    "fastify": "^5.12.5",
+    "luxon": "^3.7.2",
+    "openai": "^7.31.0",
+    "pino": "^10.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.6",
+    "@types/node": "^26.6.4",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

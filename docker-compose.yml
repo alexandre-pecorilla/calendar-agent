@@ -1,0 +1,71 @@
+# calendar-agent — one service, one volume. Start it with `make up`: the
+# Makefile derives APP_PUBLISH_1 (and compose.publish-2.yml when a second
+# address is configured) from APP_BIND_ADDRESSES in .env, so the app is
+# published only on the addresses you listed: loopback for Tailscale Serve, and
+# the Tailscale IP for http://<host>:<port>. Never on a public interface.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # The image tag follows the project name so two instances on one host do not share it.
+    image: ${COMPOSE_PROJECT_NAME:-calendar-agent}:local
+    restart: unless-stopped
+    # Only the variables the app reads are passed in (values interpolated from .env);
+    # anything else in .env, such as test tokens, never enters the container.
+    environment:
+      APP_HOST: 0.0.0.0
+      DATA_DIR: /data
+      OWNER_NAME: ${OWNER_NAME:-}
+      OWNER_ALIASES: ${OWNER_ALIASES:-}
+      BOT_NAME: ${BOT_NAME:-}
+      INSTALL_MODE: ${INSTALL_MODE:-single}
+      APP_PORT: ${APP_PORT:-8400}
+      APP_BIND_ADDRESSES: ${APP_BIND_ADDRESSES:-127.0.0.1}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_STATE_SECRET: ${SLACK_STATE_SECRET:-}
+      SLACK_ENABLED: ${SLACK_ENABLED:-true}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      MASTER_KEY: ${MASTER_KEY:-}
+      CALCOM_API_KEY: ${CALCOM_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${APP_PUBLISH_1:?Run `make up` (it derives the publish addresses from APP_BIND_ADDRESSES)}:${APP_PORT:-8400}:${APP_PORT:-8400}'
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    user: node
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+(process.env.APP_PORT||8400)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  data:

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+data/
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+docs/testing/evidence/*.secret.*
+backups/
+manifest.json

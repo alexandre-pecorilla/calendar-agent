@@ -1,0 +1,33 @@
+[live] me=owner-username tz=America/New_York selected=6 rules=1 overrides=0
+[live]   selected cred=NNNN owner@example.com
+[live]   selected cred=NNNN calendar-2@example.com
+[live]   selected cred=NNNN calendar-3@example.com
+[live]   selected cred=NNNN calendar-2@example.com
+[live]   selected cred=NNNN calendar-4@example.com
+[live]   selected cred=NNNN calendar-5@example.com
+[live] busy intervals 2026-10-10..2026-10-11+1 (America/New_York):
+[live]   2026-10-09 11:00 → 2026-10-09 11:25
+[live]   2026-10-10 09:00 → 2026-10-10 09:30
+[live]   2026-10-10 10:00 → 2026-10-10 10:30
+[live]   2026-10-10 11:00 → 2026-10-10 11:30
+[live]   2026-10-10 15:00 → 2026-10-10 15:30
+[live]   2026-10-11 00:00 → 2026-10-12 00:00
+[live]   2026-10-09 11:00 → 2026-10-09 12:00
+[live]   2026-10-09 09:00 → 2026-10-09 10:00
+[live] matrix 2026-10-10 (America/New_York):
+[live]   09:00  expected busy (accepted)                              observed busy   next 9:30 AM to 10:00 AM
+[live]   10:00  expected busy (maybe)                                 observed busy   next 10:30 AM to 11:00 AM
+[live]   11:00  expected busy (unanswered)                            observed busy   next 11:30 AM to 3:00 PM
+[live]   13:00  expected free (declined)                              observed free   1:05 PM to 3:00 PM
+[live]   14:00  expected free (show as free)                          observed free   2:05 PM to 3:00 PM
+[live]   15:00  expected busy (own event)                             observed busy   next 3:30 PM to 7:00 PM
+[live]   16:00  expected busy (accepted+declined overlap, optional)   observed free   4:05 PM to 7:00 PM
+[live]   17:00  expected free (free+declined overlap, optional)       observed free   5:05 PM to 7:00 PM
+[live] day listing:
+[live]   Owner's availability Saturday Oct 10, America/New_York:
+[live]   • 7:00 AM to 9:00 AM
+[live]   • 9:30 AM to 10:00 AM
+[live]   • 10:30 AM to 11:00 AM
+[live]   • 11:30 AM to 3:00 PM
+[live]   • 3:30 PM to 7:00 PM
+[live] 2026-10-11 (all-day busy expected): no availability
