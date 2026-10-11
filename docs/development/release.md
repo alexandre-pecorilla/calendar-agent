@@ -1,7 +1,7 @@
 # Releases and upgrades
 
-- Version in `package.json`; git tags `vX.Y.Z`. `v0.1.0` closes the initial
-  build (S8), `v1.0.0` closes the review rounds.
+- Version in `package.json`; git tags `vX.Y.Z` for releases after 1.0.0 (the
+  build-era tags `v0.1.0`/`v1.0.0` went with the original history).
 - Upgrade an instance: `git pull && make rebuild`. The data volume and the
   database are kept; migrations run at boot. Take `make db-backup` first.
 - Changing the Slack manifest (scopes, events, names) means updating the app on

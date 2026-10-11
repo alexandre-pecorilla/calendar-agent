@@ -63,3 +63,18 @@ development conventions in `docs/development/`, user guides `docs/user-guide.md`
 Scope (`scopes_of_work/`) → action plan (`action_plans/`) → testing plan
 (`testing_plans/`) → build, each phase approved by the owner. Review rounds
 R1–R3 (functional) and R4 (security) close a build; reports in `docs/reviews/`.
+
+## 7. Publishing (binding since 2026-10-11)
+
+The original build history held the owner's client calendar addresses and
+infrastructure details, so it was deleted; the history starts at the public
+1.0.0 commit, and commit hashes cited in older documents no longer exist. Rules:
+
+- One branch, `main`, the same locally and on GitHub:
+  `make check` → commit → `git push`. Never `--force`, never rewrite pushed
+  history.
+- Before every push, nothing personal may enter the tree: no e-mail address,
+  tailnet host name, Tailscale address, workspace id or client name
+  (`tests/repo/no-owner-literal.test.ts` guards the product files; documents
+  are checked by hand). The example owner is "Alex"; the only real name in the
+  tree is the copyright holder in `LICENSE`.
