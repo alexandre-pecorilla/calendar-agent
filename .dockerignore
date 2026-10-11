@@ -14,3 +14,5 @@ testing_plans/
 *.md
 .git/
 .gitignore
+.private-words
+.githooks/

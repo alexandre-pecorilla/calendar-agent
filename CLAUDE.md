@@ -74,7 +74,11 @@ infrastructure details, so it was deleted; the history starts at the public
   `make check` → commit → `git push`. Never `--force`, never rewrite pushed
   history.
 - Before every push, nothing personal may enter the tree: no e-mail address,
-  tailnet host name, Tailscale address, workspace id or client name
-  (`tests/repo/no-owner-literal.test.ts` guards the product files; documents
-  are checked by hand). The example owner is "Alex"; the only real name in the
-  tree is the copyright holder in `LICENSE`.
+  tailnet host name, Tailscale address, workspace id or client name. Guards:
+  `tests/repo/no-owner-literal.test.ts` (generic patterns, product files) and
+  `scripts/check-private-words.mjs` (the owner's real terms, listed in the
+  gitignored `.private-words`, checked in every file and unpushed commit
+  message by `make check` and the pre-push hook; `make hooks` installs it on a
+  new clone). Never print, copy or commit the contents of `.private-words`.
+  The example owner is "Alex"; the only real name in the tree is the copyright
+  holder in `LICENSE`.

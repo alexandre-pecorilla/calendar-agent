@@ -48,7 +48,7 @@ context to leak and nothing it can call.
 | 11 | Logs carry no content: redaction of text/answer/secret keys; the Slack libraries' debug output (full event payloads) is discarded at every `LOG_LEVEL`; content only in SQLite | `src/logging/logger.ts`, `src/slack/app.ts` (`boltLogger`) | `tests/unit/logger.test.ts`, `tests/integration/pipeline.test.ts`, `tests/integration/slack.test.ts`, `tests/live/container.test.ts` |
 | 12 | Dependencies: pinned lockfile, `npm audit --audit-level=high` gate, minimal set | `package-lock.json`, Makefile | `make security-check` |
 | 13 | Injection corpus through the real pipeline: outcome is a fixed reply or a plain availability answer, no forbidden words | `tests/fixtures/questions.ts` | `tests/live/llm.test.ts` (T4, T7) |
-| 14 | No owner literal in the product; identity from configuration | `src/config/*` | `tests/repo/no-owner-literal.test.ts` |
+| 14 | No owner literal in the product; identity from configuration; the owner's real terms (local, gitignored list) absent from every published file and commit message | `src/config/*`, `scripts/check-private-words.mjs` | `tests/repo/no-owner-literal.test.ts`, `make private-words-check` (also the pre-push hook) |
 | 15 | Slack least privilege: seven bot scopes, two events, no user scopes; per-workspace tokens never cross | `src/slack/scopes.ts`, `authorize.ts` | `tests/repo/slack-scopes.test.ts`, `tests/integration/slack.test.ts` |
 
 ## What an attacker can and cannot do

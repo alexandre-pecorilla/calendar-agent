@@ -1,0 +1,4 @@
+#!/bin/sh
+# Block a push that would publish a term from .private-words (see
+# scripts/check-private-words.mjs). Installed by `make hooks`.
+exec node scripts/check-private-words.mjs

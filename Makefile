@@ -150,12 +150,20 @@ ports-check: ## Verify the configured port is free on every publish address
 secrets-scan: ## Fail if anything that looks like a secret is committed
 	@node scripts/scan-secrets.mjs
 
+.PHONY: private-words-check
+private-words-check: ## Fail if a term from the local .private-words list is in the tree or an unpushed commit message
+	@node scripts/check-private-words.mjs
+
+.PHONY: hooks
+hooks: ## Install the repository's git hooks (pre-push runs private-words-check)
+	git config core.hooksPath .githooks
+
 .PHONY: audit
 audit: ## Fail on known high/critical dependency vulnerabilities
 	npm audit --audit-level=high
 
 .PHONY: security-check
-security-check: secrets-scan audit ## Run every security gate
+security-check: secrets-scan private-words-check audit ## Run every security gate
 	@echo "Security checks passed."
 
 .PHONY: docs-check

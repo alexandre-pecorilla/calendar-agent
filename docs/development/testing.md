@@ -9,8 +9,18 @@
 | Repository guards | `tests/repo/` | `make test` | the source tree: allowlists and hygiene rules that fail the build on purpose |
 | Live | `tests/live/` | `make test-live` (`LIVE=1`, loads `.env`) | the owner's keys; the running container for the container suites; cheap and read-only |
 
-`make check` = lint + typecheck + `make test` + secrets scan + `npm audit` +
-`make docs-check`.
+`make check` = lint + typecheck + `make test` + secrets scan + private-words
+check + `npm audit` + `make docs-check`.
+
+The private-words check (`scripts/check-private-words.mjs`) reads the owner's
+real terms (e-mail, client domains, tailnet name, workspace id, client names)
+from `.private-words` at the repository root: gitignored, one term per line,
+`#` for comments, case-insensitive plain text. It fails on any of them in a
+file name, a file the repository tracks or would add, or the message of a
+commit not yet pushed, and reports only where and which line of the list,
+never the term. Without the file (CI, a fresh clone) it is skipped. The
+pre-push hook in `.githooks/` runs it too; `make hooks` installs it once per
+clone.
 It runs before `make build` and must be green before any commit that ends a
 step.
 

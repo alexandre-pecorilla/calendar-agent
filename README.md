@@ -77,8 +77,8 @@ Full guide, both install modes, troubleshooting: `DEPLOYMENT.md`.
 Run: `build`, `up`, `down`, `restart`, `rebuild`, `logs`, `ps`, `shell`, `status`.
 Data: `db-backup`, `db-restore`, `db-shell`. Checks: `ask` (and `ask-host`),
 `calcom-check`, `deepseek-check`, `test`, `test-live`, `lint`, `typecheck`,
-`compile`, `ports-check`, `secrets-scan`, `audit`, `security-check`, `docs-check`,
-`check`.
+`compile`, `ports-check`, `secrets-scan`, `private-words-check`, `audit`,
+`security-check`, `docs-check`, `check`. Development: `hooks`.
 
 ## Documentation
 

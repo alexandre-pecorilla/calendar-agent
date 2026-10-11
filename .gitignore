@@ -10,3 +10,4 @@ coverage/
 docs/testing/evidence/*.secret.*
 backups/
 manifest.json
+.private-words

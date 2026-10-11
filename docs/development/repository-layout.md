@@ -6,10 +6,12 @@
 ├── Makefile  Dockerfile  docker-compose.yml  compose.publish-2.yml
 ├── .env.example  manifest.json (rendered by `make manifest`, gitignored)
 ├── package.json  tsconfig.json  vitest.config.ts  eslint.config.js  .prettierrc
+├── .githooks/pre-push   # private-words check before every push (`make hooks`)
 ├── scopes_of_work/  action_plans/  testing_plans/      # planning documents
 ├── scripts/                                            # host-side helpers (node, no deps)
 │   ├── check-ports.mjs      # port free on every publish address
 │   ├── scan-secrets.mjs     # committed-secret scan (from an earlier internal project)
+│   ├── check-private-words.mjs  # owner's real terms (gitignored .private-words) absent from the tree
 │   ├── copy-assets.mjs      # migrations, prompts, static files into dist/
 │   └── docs-check.mjs       # documentation sweep
 ├── src/
