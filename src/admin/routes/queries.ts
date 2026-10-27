@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth.js';
-import { esc, page, table } from '../html.js';
+import { esc, page, table, slackText } from '../html.js';
 import type { AdminDeps } from '../server.js';
 
 const PAGE_SIZE = 50;
@@ -61,7 +61,7 @@ export function registerQueriesRoutes(app: FastifyInstance, deps: AdminDeps): vo
       <div class="panel"><dl class="kv">${kv('Received (UTC)', r.received_at)}${kv('Workspace', `${r.workspace_name ?? ''} ${r.workspace_id ?? ''}`)}${kv('User', `${r.user_name ?? ''} ${r.user_id}`)}${kv('Entry point', r.entry_point)}${kv('Channel', r.channel_id)}${kv('Intent', r.intent)}${kv('Language / zone', `${r.language ?? ''} / ${r.timezone_used ?? ''}`)}${kv('Latency', r.latency_ms != null ? `${r.latency_ms} ms` : '')}${kv('Tokens', `${r.prompt_tokens ?? 0} in / ${r.completion_tokens ?? 0} out`)}${kv('Cost', r.cost_usd != null ? `$${r.cost_usd.toFixed(6)}` : '')}${kv('Error', r.error)}</dl></div>
       <h2>Question</h2><div class="reply">${esc(r.question)}</div>
       <h2>Interpretation</h2><pre>${esc(r.parsed_json ?? '')}</pre>
-      <h2>Answer</h2><div class="reply">${esc(r.answer ?? '')}</div>`;
+      <h2>Answer</h2><div class="reply">${slackText(r.answer ?? '')}</div>`;
     return reply.type('text/html').send(page({ title: `Query ${r.id}`, botName: deps.config.botName, active: '/queries', authenticated: true, csrfField: req.csrfField, body }));
   });
 }

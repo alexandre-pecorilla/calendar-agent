@@ -22,7 +22,7 @@
 │   ├── crypto/              # AES-256-GCM envelope, Secret wrapper (S2, from an earlier internal project)
 │   ├── security/            # control-token neutralisation, input caps (S4)
 │   ├── calcom/              # GET-only allowlisted client, cache (S3)
-│   ├── availability/        # schedule, windows, timezone, formatting (S3)
+│   ├── availability/        # schedule, windows, timezone (flags, clock style, zone-countries), formatting (S3)
 │   ├── llm/                 # DeepSeek client, parse, phrase, verify, prompts/ (S4)
 │   ├── pipeline/            # answer.ts, fixed replies, rate limits (S4)
 │   ├── slack/               # Bolt app, handlers, installer, manifest (S6)

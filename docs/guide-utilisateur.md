@@ -34,18 +34,29 @@ Posez la question en français ou en anglais ; le bot répond dans votre langue.
 ## À quoi ressemble la réponse
 
 ```
-Oui, Alex est disponible lundi 12 octobre de 16h00 à 17h30, heure de Paris.
+Oui, Alex est disponible lundi 12 octobre de *16h00 à 17h30*, 🇫🇷 heure de Paris.
 
-Disponibilités d'Alex du lundi 12 octobre au vendredi 16 octobre (sauf mercredi), heure de Paris :
-• lundi 12 octobre : 9h00 à 11h30, 14h00 à 17h00
-• mardi 13 octobre : 10h00 à 12h00
-• jeudi 15 octobre : toute la journée, 9h00 à 18h00
-• vendredi 16 octobre : aucune disponibilité
+*Disponibilités d'Alex mardi 13 octobre*, 🇫🇷 heure de Paris :
+• 🌅 *Matin* : 9h00 à 11h30
+• ☀️ *Après-midi* : 14h00 à 17h00
+
+*Disponibilités d'Alex du lundi 12 octobre au vendredi 16 octobre (sauf mercredi)*, 🇫🇷 heure de Paris :
+• *lundi 12 octobre* : 🌅 9h00 à 11h30 · ☀️ 14h00 à 17h00
+• *mardi 13 octobre* : 🌅 10h00 à 12h00
+• *jeudi 15 octobre* : ✅ toute la journée, 9h00 à 18h00
+• *vendredi 16 octobre* : aucune disponibilité
 ```
 
+Slack affiche `*…*` en gras. Une journée est découpée par moment : 🌅 matin
+(avant midi), ☀️ après-midi (de midi à 18h), 🌆 soir (à partir de 18h). Sur
+plusieurs jours, les mêmes emoji marquent les moments sur chaque ligne.
+
 Les heures sont dans **votre** fuseau horaire, celui de votre profil Slack, et
-le fuseau est toujours écrit dans la réponse. Si le fuseau de votre profil est
-erroné ou si vous voyagez, nommez le fuseau voulu : « heure de Londres ».
+le fuseau est toujours écrit dans la réponse, avec le drapeau de son pays. En
+français les heures s'écrivent toujours « 14h00 » ; en anglais, la réponse
+suit l'usage du pays du fuseau (AM/PM en Amérique du Nord, « 14:00 » en
+Europe). Si le fuseau de votre profil est erroné ou si vous voyagez, nommez le
+fuseau voulu : « heure de Londres ».
 
 ## Ce que le bot ne fera pas
 

@@ -38,3 +38,10 @@
 - Live: http://myhost:8400 (admin), https://myhost.tailnet-example.ts.net:8445 (same over HTTPS; the Add-to-Slack flow must start here), Slack app `alex-calendar-agent` in Acme. Owner acceptance: DM and slash command confirmed by the owner; the channel mention was being tried (the bot must be invited to the channel first).
 - Next: the owner installs the other workspaces from the Workspaces page over HTTPS; nothing else is pending on the build.
 
+
+## 2026-10-27 — 1.1.0: reply formatting | tag `v1.1.0`
+
+- Replies are Slack mrkdwn: a single day is listed by part of day (🌅 morning, ☀️ afternoon, 🌆 evening, by window start, windows never split), a range keeps one line per day with the same emoji inline, a whole free day is ✅ "all day"; the lead line, the day and part labels and the times of a yes/no answer are bold.
+- The zone label carries the flag of its country (tzdata `zone.tab` table in `src/availability/zone-countries.ts`); English times follow that country's clock as CLDR records it (AM/PM in North America, 24-hour in Europe); French keeps `14h00`.
+- The phrase prompt keeps bold and emoji in place; the verifier is unchanged (bullet lines verbatim, the flagged label required), so a reply the model mangles falls back to the draft as before. The admin Sandbox and Queries pages render the bold.
+- Verified the same day: in the week when Europe has left summer time and the US has not (2026-10-25 to 2026-11-01), 7:00 AM New York is 12:00 Paris and the bot says so; a unit test now pins that week.

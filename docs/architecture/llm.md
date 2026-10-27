@@ -33,7 +33,9 @@ names that mean the owner.
 
 Receives the deterministic draft produced by the renderer and nothing else:
 the asker's question never reaches it. It may add one lead sentence and must
-keep every time, date, label, qualifier and bullet line verbatim. **Thinking is
+keep every time, date, label (flag included), qualifier and bullet line
+verbatim, bold and emoji where the draft has them, and add no markup of its
+own. **Thinking is
 off for this call** (D19): rewriting needs no reasoning, and measured live on
 2026-10-09 the thinking version spent 450–750 reasoning tokens and 3–5 s per
 reply where the thinking-off version takes under a second for the same verified
@@ -67,7 +69,7 @@ The reply is accepted only if (tightened after review R1-2):
   is one the renderer produced, and every date of the draft is present;
 - its bullet lines are exactly the draft's bullet lines, in the same order;
 - a yes/no answer keeps its verdict (yes-words and no-words checked);
-- every required phrase is present: the timezone label always, plus the
+- every required phrase is present: the timezone label (flag included) always, plus the
   qualifiers the draft carried (the duration such as "1 hour" / "1 h", every
   excluded weekday name, the part of day);
 - it is under 1,500 characters and contains no link.

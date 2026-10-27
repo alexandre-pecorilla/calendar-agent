@@ -16,5 +16,5 @@
   present, no reasons, no event details.
 - Documentation ships with the change: `docs/README.md` indexes every document;
   `STATUS.md` says what is live; `CLAUDE.md` binds every session.
-- Commits: `S<n>:`, `T<n>:`, `R<n>:`, `docs:`, `fix:`; `make check` green
+- Commits: `S<n>:`, `T<n>:`, `R<n>:`, `feat:`, `docs:`, `fix:`; `make check` green
   before each.

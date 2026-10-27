@@ -1,9 +1,10 @@
 import type { DateTime } from 'luxon';
-import type { Lang } from './timezone.js';
+import type { ClockStyle, Lang } from './timezone.js';
 
-/** EN "4:00 PM", FR "16h00". */
-export function formatTime(t: DateTime, lang: Lang): string {
+/** EN "4:00 PM" (12-hour clock) or "16:00" (24-hour clock), FR always "16h00". */
+export function formatTime(t: DateTime, lang: Lang, clock: ClockStyle = '12h'): string {
   if (lang === 'fr') return t.toFormat("H'h'mm");
+  if (clock === '24h') return t.toFormat('HH:mm');
   return t.setLocale('en-US').toFormat('h:mm a');
 }
 
@@ -24,8 +25,8 @@ export function formatWeekday(t: DateTime, lang: Lang): string {
   return t.setLocale(lang === 'fr' ? 'fr-FR' : 'en-US').toFormat('cccc');
 }
 
-export function formatRange(a: DateTime, b: DateTime, lang: Lang): string {
-  return lang === 'fr' ? `${formatTime(a, lang)} à ${formatTime(b, lang)}` : `${formatTime(a, lang)} to ${formatTime(b, lang)}`;
+export function formatRange(a: DateTime, b: DateTime, lang: Lang, clock: ClockStyle = '12h'): string {
+  return lang === 'fr' ? `${formatTime(a, lang, clock)} à ${formatTime(b, lang, clock)}` : `${formatTime(a, lang, clock)} to ${formatTime(b, lang, clock)}`;
 }
 
 export function formatDuration(min: number, lang: Lang): string {

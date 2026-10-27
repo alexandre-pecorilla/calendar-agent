@@ -1,4 +1,5 @@
 import { IANAZone } from 'luxon';
+import { countryOfZone } from './zone-countries.js';
 
 export type Lang = 'en' | 'fr';
 
@@ -80,4 +81,29 @@ export function resolveZone(args: {
   if (o && 'zone' in o) return { zone: o.zone, source: 'override' };
   if (isValidZone(args.askerTz)) return { zone: args.askerTz, source: 'asker' };
   return { zone: args.ownerTz, source: 'owner' };
+}
+
+export type ClockStyle = '12h' | '24h';
+
+/** Flag of the zone's country as regional-indicator letters; a globe for UTC and for a zone the table does not know. */
+export function zoneFlag(tz: string): string {
+  if (zoneCity(tz).startsWith('UTC')) return '🌐';
+  const cc = countryOfZone(tz);
+  if (cc) return String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+  return /^America\//.test(tz) ? '🌎' : /^(Asia|Australia|Pacific|Indian)\//.test(tz) ? '🌏' : '🌍';
+}
+
+const CLOCKS = new Map<string, ClockStyle>();
+
+/** The clock the zone's country prefers, as CLDR records it (via Intl): "12h" (AM/PM) or "24h". UTC and unknown zones: 24-hour. */
+export function clockStyle(tz: string): ClockStyle {
+  const cc = countryOfZone(tz);
+  if (!cc || zoneCity(tz).startsWith('UTC')) return '24h';
+  let style = CLOCKS.get(cc);
+  if (!style) {
+    const cycle = new Intl.DateTimeFormat(`en-${cc}`, { hour: 'numeric' }).resolvedOptions().hourCycle;
+    style = cycle === 'h11' || cycle === 'h12' ? '12h' : '24h';
+    CLOCKS.set(cc, style);
+  }
+  return style;
 }

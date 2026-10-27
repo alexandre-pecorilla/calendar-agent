@@ -71,19 +71,34 @@ and 14:00–14:10 (Paris); question "when is X free Monday?" asked on Friday
 03:00–11:00 New York. Free = 09:00–10:00, 11:00–14:00, 14:10–17:00 Paris. The
 10-minute busy block only shortens the afternoon window (a free gap under 15
 minutes would be dropped by the noise floor). A single day is a `day` request,
-rendered with one bullet per window, in New York time (regenerated with the
-engine and renderer, R3-11):
+rendered by part of day (all three windows start before noon), in New York
+time (regenerated with the engine and renderer, 1.1.0):
 
 ```
-Alex's availability Monday Oct 12, New York time:
-• 3:00 AM to 4:00 AM
-• 5:00 AM to 8:00 AM
-• 8:10 AM to 11:00 AM
+*Alex's availability Monday Oct 12*, 🇺🇸 New York time:
+• 🌅 *Morning*: 3:00 AM to 4:00 AM, 5:00 AM to 8:00 AM, 8:10 AM to 11:00 AM
 ```
 
 ## Rendering (`render.ts`)
 
 Deterministic EN/FR text with the zone label on the first line of a listing
-and inline in a yes/no answer. The renderer also returns every time and date
-token it used; the LLM phrasing (`llm.md`) is accepted only if it uses no
-other token.
+and inline in a yes/no answer. Since 1.1.0 the text is Slack mrkdwn:
+
+- the zone label carries the flag of the zone's country (`zoneFlag` in
+  `timezone.ts`, from the tzdata `zone.tab` table in `zone-countries.ts`; a
+  globe for UTC or a zone the table does not know);
+- English times follow the clock of that country as CLDR records it
+  (`clockStyle`, through `Intl`): AM/PM in North America, India or Australia,
+  24-hour (`14:00`) in Europe; a zone without a country is 24-hour; French is
+  always `14h00`;
+- a single day lists its windows by part of day, by window start and never
+  split, with the boundaries of the questions (🌅 morning before 12:00,
+  ☀️ afternoon from 12:00, 🌆 evening from 18:00); a range keeps one line per
+  day with the emoji inline, separated by `·`; a whole free day is ✅ "all day";
+- the lead line, the day and part labels and the times of a yes/no answer are
+  bold (`*…*`).
+
+The renderer also returns every time and date token it used; the LLM phrasing
+(`llm.md`) is accepted only if it uses no other token and keeps every bullet
+line, bold and emoji included, verbatim. The admin pages render the bold in
+their reply previews (`slackText` in `src/admin/html.ts`).

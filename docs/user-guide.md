@@ -33,18 +33,29 @@ Ask in English or in French; the bot answers in your language.
 ## What the answer looks like
 
 ```
-Yes, Alex is free Monday Oct 12 from 4:00 PM to 5:30 PM, New York time.
+Yes, Alex is free Monday Oct 12 from *4:00 PM to 5:30 PM*, 🇺🇸 New York time.
 
-Alex's availability from Mon Oct 12 to Fri Oct 16 (except Wednesday), New York time:
-• Mon Oct 12: 9:00 AM to 11:30 AM, 2:00 PM to 5:00 PM
-• Tue Oct 13: 10:00 AM to 12:00 PM
-• Thu Oct 15: all day, 9:00 AM to 6:00 PM
-• Fri Oct 16: no availability
+*Alex's availability Tuesday Oct 13*, 🇺🇸 New York time:
+• 🌅 *Morning*: 7:00 AM to 9:00 AM
+• ☀️ *Afternoon*: 1:00 PM to 5:00 PM
+• 🌆 *Evening*: 6:00 PM to 7:00 PM
+
+*Alex's availability from Mon Oct 12 to Fri Oct 16 (except Wednesday)*, 🇺🇸 New York time:
+• *Mon Oct 12*: 🌅 9:00 AM to 11:30 AM · ☀️ 2:00 PM to 5:00 PM
+• *Tue Oct 13*: 🌅 10:00 AM to 12:00 PM
+• *Thu Oct 15*: ✅ all day, 9:00 AM to 6:00 PM
+• *Fri Oct 16*: no availability
 ```
 
+Slack shows `*…*` in bold. A single day is listed by part of day: 🌅 morning
+(before noon), ☀️ afternoon (noon to 6 pm), 🌆 evening (from 6 pm). Over
+several days the same emoji mark the parts on each line.
+
 Times are shown in **your** timezone, the one set in your Slack profile, and
-the timezone is always written in the answer. If your profile timezone is
-wrong or you are travelling, name the zone you want: "in London time".
+the timezone is always written in the answer, with the flag of its country.
+The clock follows that country: AM/PM in North America, 24-hour in Europe
+("14:00"). In French it is always "14h00". If your profile timezone is wrong
+or you are travelling, name the zone you want: "in London time".
 
 ## What the bot will not do
 

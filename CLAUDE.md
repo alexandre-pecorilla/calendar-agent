@@ -49,7 +49,7 @@ service, one volume, hardened container (non-root, read-only rootfs, caps droppe
 - Tests: `tests/unit` (pure), `tests/integration` (mocks, temp DB),
   `tests/repo` (hygiene guards), `tests/live` (real services, `make test-live`).
   "Now" is always injected; no test reads the wall clock.
-- Commit messages: `S<n>: …`, `T<n>: …`, `R<n>: …`, `docs: …`, `fix: …`.
+- Commit messages: `S<n>: …`, `T<n>: …`, `R<n>: …`, `feat: …`, `docs: …`, `fix: …`.
 - Language: code and docs in English; user-facing bot text in EN and FR.
 
 ## 5. Documentation map

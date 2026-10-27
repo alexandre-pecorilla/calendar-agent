@@ -100,7 +100,7 @@ describe('AnswerPipeline', () => {
     scriptedParse = parse({ point_time: '2026-10-12T16:00' });
     scriptedPhrase = 'Alex is free at 3:00 PM today!';
     const r = await pipeline.ask(ctx(), '<@U9> is Alex free Monday at 4pm?');
-    expect(r.text).toBe('Yes, Alex is free Monday Oct 12 from 4:00 PM to 5:30 PM, New York time.');
+    expect(r.text).toBe('Yes, Alex is free Monday Oct 12 from *4:00 PM to 5:30 PM*, 🇺🇸 New York time.');
     expect(r.debug.phrased).toBe(false);
     expect(r.debug.verification).toContain('unknown_time');
     expect(r.debug.busyCount).toBe(2);
@@ -109,7 +109,7 @@ describe('AnswerPipeline', () => {
     expect(row.question).toBe('is Alex free Monday at 4pm?');
     busyData = [busyNY('2026-10-12T15:00', '2026-10-12T16:30')];
     const busy = await pipeline.ask(ctx(), 'Monday 4pm?');
-    expect(busy.text).toBe('No, Alex is busy Monday Oct 12 at 4:00 PM. Next free window: 4:30 PM to 6:00 PM, New York time.');
+    expect(busy.text).toBe('No, Alex is busy Monday Oct 12 at *4:00 PM*. Next free window: *4:30 PM to 6:00 PM*, 🇺🇸 New York time.');
     expect(row.intent).toBe('point');
     expect(row.answer).toBe(r.text);
     expect(row.cost_usd).toBeGreaterThan(0);
@@ -119,7 +119,7 @@ describe('AnswerPipeline', () => {
 
   it('accepts a faithful phrasing', async () => {
     scriptedParse = parse({ point_time: '2026-10-12T16:00' });
-    scriptedPhrase = 'Good news: Alex is free Monday Oct 12 from 4:00 PM to 5:30 PM, New York time.';
+    scriptedPhrase = 'Good news: Alex is free Monday Oct 12 from 4:00 PM to 5:30 PM, 🇺🇸 New York time.'; // the flag is part of the required label; bold is not required outside bullet lines
     const r = await pipeline.ask(ctx(), 'Monday 4pm?');
     expect(r.text).toBe(scriptedPhrase);
     expect(r.debug.phrased).toBe(true);

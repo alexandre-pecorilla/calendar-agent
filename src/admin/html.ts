@@ -63,3 +63,8 @@ export function hidden(name: string, value: string): string {
 export function field(label: string, input: string, help?: string): string {
   return `<label class="field"><span>${esc(label)}</span>${input}${help ? `<small>${esc(help)}</small>` : ''}</label>`;
 }
+
+/** Escaped text with Slack bold (`*…*`) rendered, for the reply previews. */
+export function slackText(v: unknown): string {
+  return esc(v).replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+}

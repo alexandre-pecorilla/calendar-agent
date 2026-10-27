@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import type { FastifyInstance } from 'fastify';
 import { isValidZone } from '../../availability/timezone.js';
 import { requireCsrf, requireSession } from '../auth.js';
-import { esc, field, page } from '../html.js';
+import { esc, field, page, slackText } from '../html.js';
 import type { AdminDeps } from '../server.js';
 
 const ZONES = ['America/New_York', 'Europe/Paris', 'Europe/London', 'America/Los_Angeles', 'America/Chicago', 'Asia/Tokyo', 'UTC'];
@@ -22,7 +22,7 @@ export function registerSandboxRoutes(app: FastifyInstance, deps: AdminDeps): vo
     let out = '';
     if (result) {
       const d = result.debug;
-      out = `<h2>Reply</h2><div class="reply">${esc(result.text)}</div>
+      out = `<h2>Reply</h2><div class="reply">${slackText(result.text)}</div>
         <h2>Debug</h2><div class="panel"><dl class="kv">
           <dt>Intent</dt><dd>${esc(result.intent)}</dd>
           <dt>Language</dt><dd>${esc(d.language)}</dd>
