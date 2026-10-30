@@ -55,3 +55,11 @@ them on purpose, this list is the record (R3-20):
 - `make ask`, `make calcom-check` and `make deepseek-check` run inside the
   container against the instance's database (R3-3, R3-6); `make ask-host` is
   the host-side developer form.
+- Since 1.2.0 the phrase call (call 2) rewrites yes/no answers only; day and
+  range listings and slot verdicts are posted exactly as rendered. The scope's
+  "call 2 phrases the reply" holds for the yes/no sentence, where a rewrite
+  can read more naturally; on a listing the model had to keep every line
+  verbatim, so the call changed nothing visible and only added latency.
+- A question naming several times at once is a `slots` intent (1.2.0), one
+  verdict per time; the scope's six shapes had no such shape, and such
+  questions were answered for their first time or as a whole-day listing.

@@ -1,14 +1,14 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import { computeAvailability, openRange, type AvailabilityRequest } from '../../src/availability/engine.js';
-import { formatDate, formatDateLong, formatDuration, formatRange, formatTime } from '../../src/availability/format.js';
+import { formatDate, formatDateLong, formatDuration, formatRange, formatSpan, formatTime } from '../../src/availability/format.js';
 import { clipIntervals, mergeIntervals, minutes, roundUpToMinutes, subtractIntervals } from '../../src/availability/intervals.js';
 import { renderResult } from '../../src/availability/render.js';
 import { verifyReply } from '../../src/llm/verify.js';
 import { dayWorkingIntervals, workingIntervals } from '../../src/availability/schedule.js';
 import { isValidZone, normalizeZoneOverride, resolveZone, zoneLabel, clockStyle, zoneFlag } from '../../src/availability/timezone.js';
 import { ZONE_COUNTRIES } from '../../src/availability/zone-countries.js';
-import { classifyPoint, freeWindows, groupByDay, isWholeDayFree } from '../../src/availability/windows.js';
+import { classifyPoint, classifySpan, freeWindows, groupByWorkingDay, isWholeDayFree } from '../../src/availability/windows.js';
 import { midnightEnd, newYorkAllWeek, parisOfficeHours, splitHours, withOverride } from '../fixtures/schedules.js';
 
 const P = 'Europe/Paris';
@@ -79,10 +79,23 @@ describe('free windows', () => {
     expect(freeWindows({ ...base, busy: [iv('2026-10-13T00:00', '2026-10-14T00:00')] })).toEqual([]);
     expect(freeWindows({ ...base, busy: [] })).toHaveLength(1);
   });
-  it('groups by display day and splits at midnight', () => {
-    const g = groupByDay([{ start: t('2026-10-13T22:00'), end: t('2026-10-14T02:00') }], P);
-    expect(g.map((x) => x.date)).toEqual(['2026-10-13', '2026-10-14']);
-    expect(formatRange(g[1]!.windows[0]!.start, g[1]!.windows[0]!.end, 'fr')).toBe('0h00 à 2h00');
+  it('1.2.0: groups windows by the working day they fall in, never splitting at midnight; a running day belongs to today', () => {
+    // Working days 20:00–02:00 on the 13th and the 14th (Paris); a free hour at 00:00 on the 14th belongs to the 13th's day.
+    const days = [
+      { day: t('2026-10-13'), interval: iv('2026-10-13T20:00', '2026-10-14T02:00') },
+      { day: t('2026-10-14'), interval: iv('2026-10-14T20:00', '2026-10-15T02:00') },
+    ];
+    const windows = [iv('2026-10-13T22:00', '2026-10-13T23:00'), iv('2026-10-14T00:00', '2026-10-14T01:00'), iv('2026-10-14T20:00', '2026-10-15T02:00')];
+    const g = groupByWorkingDay(windows, days, P, t('2026-10-12T12:00'), t('2026-10-13'));
+    expect(g.map((x) => [x.date, x.windows.map((w) => formatRange(w.start, w.end, 'fr'))])).toEqual([
+      ['2026-10-13', ['22h00 à 23h00', '0h00 à 1h00']],
+      ['2026-10-14', ['20h00 à 2h00']],
+    ]);
+    // Asked "today" (the 14th) at 00:20 while the 13th's day still runs: its remaining windows are today's.
+    const running = groupByWorkingDay([iv('2026-10-14T00:20', '2026-10-14T01:00'), iv('2026-10-14T20:00', '2026-10-15T02:00')], days, P, t('2026-10-14T00:20'), t('2026-10-14'));
+    expect(running.map((x) => [x.date, x.windows.length])).toEqual([['2026-10-14', 2]]);
+    // A window outside every span falls back to its own day.
+    expect(groupByWorkingDay([iv('2026-10-20T09:00', '2026-10-20T10:00')], days, P, t('2026-10-12T12:00'), t('2026-10-13'))[0]!.date).toBe('2026-10-20');
   });
   it('detects a whole free day', () => {
     expect(isWholeDayFree(working, working)).toBe(true);
@@ -215,7 +228,7 @@ describe('engine and renderer', () => {
     const req: AvailabilityRequest = { kind: 'day', zone: P, lang: 'fr', now: t('2026-10-09T12:00'), rangeStart: t('2026-10-13'), rangeEnd: t('2026-10-14') };
     const busy = (a: string, b: string) => ({ start: t(a).toUTC().toISO()!, end: t(b).toUTC().toISO()! });
     const res = await computeAvailability({ schedule, fetchBusy: async () => [busy('2026-10-13T11:30', '2026-10-13T14:00')], settings }, req);
-    expect(renderResult(res, req, ctxFr).text).toBe("*Disponibilités d'Alex mardi 13 octobre*, 🇫🇷 heure de Paris :\n• 🌅 *Matin* : 9h00 à 11h30\n• ☀️ *Après-midi* : 14h00 à 17h00");
+    expect(renderResult(res, req, ctxFr).text).toBe("*Disponibilités d'Alex mardi 13 octobre*, 🇫🇷 heure de Paris : 9h00–11h30, 14h00–17h00");
   });
 
   it('renders the scope range example with exclusions, a whole day and an empty day', async () => {
@@ -230,9 +243,9 @@ describe('engine and renderer', () => {
     const r = renderResult(res, req, ctxEn);
     expect(r.lines).toEqual([
       "*Alex's availability from Mon Oct 12 to Fri Oct 16 (except Wednesday)*, 🇺🇸 New York time:",
-      '• *Mon Oct 12*: 🌅 9:00 AM to 11:30 AM · ☀️ 2:00 PM to 5:00 PM',
-      '• *Tue Oct 13*: 🌅 10:00 AM to 12:00 PM',
-      '• *Thu Oct 15*: ✅ all day, 9:00 AM to 6:00 PM',
+      '• *Mon Oct 12*: 9:00–11:30 AM, 2:00–5:00 PM',
+      '• *Tue Oct 13*: 10:00 AM–12:00 PM',
+      '• *Thu Oct 15*: ✅ all day, 9:00 AM–6:00 PM',
       '• *Fri Oct 16*: no availability',
     ]);
     expect(r.tokens).toContain('9:00 AM');
@@ -265,7 +278,7 @@ describe('engine and renderer', () => {
     const req: AvailabilityRequest = { kind: 'day', zone: P, lang: 'en', now, rangeStart: t('2026-10-13'), rangeEnd: t('2026-10-14') };
     const res = await computeAvailability({ schedule, fetchBusy: async () => [], settings }, req);
     expect(res.days.map((d) => d.wholeDay)).toEqual([true]);
-    expect(renderResult(res, req, { ...ctxEn, zoneLabel: 'Paris time' }).lines[1]).toBe('• ✅ *All day*, 15:00 to 00:00'); // Paris: 24-hour clock
+    expect(renderResult(res, req, { ...ctxEn, zoneLabel: 'Paris time' }).text).toBe("*Alex's availability Tuesday Oct 13*, 🇫🇷 Paris time: ✅ all day, 15:00–00:00"); // Paris: 24-hour clock
   });
 
   it('R1-4: free but shorter than the duration says so and names the next fitting window', async () => {
@@ -287,7 +300,7 @@ describe('engine and renderer', () => {
   it('R1-8: afternoon runs to the end of the working day', async () => {
     const req: AvailabilityRequest = { kind: 'day', zone: NY, lang: 'en', now, rangeStart: t('2026-10-13', NY), rangeEnd: t('2026-10-14', NY), partOfDay: 'afternoon' };
     const res = await computeAvailability({ schedule: newYorkAllWeek, fetchBusy: async () => [], settings }, req);
-    expect(renderResult(res, req, ctxEn).lines[1]).toBe('• ☀️ *Afternoon*: 12:00 PM to 7:00 PM');
+    expect(renderResult(res, req, ctxEn).text).toBe("*Alex's availability Tuesday Oct 13 in the afternoon*, 🇺🇸 New York time: 12:00–7:00 PM");
   });
 
   it('filters by part of day and renders no-availability and duration headers', async () => {
@@ -297,17 +310,12 @@ describe('engine and renderer', () => {
     expect(renderResult(res, req, { ...ctxFr, zoneLabel: 'heure de New York' }).text).toBe("Alex n'a aucune disponibilité mardi 13 octobre le matin, créneaux d'au moins 1 h, 🇺🇸 heure de New York.");
     const res2 = await computeAvailability({ schedule, fetchBusy: async () => [busyNY('2026-10-13T07:00', '2026-10-13T10:30')], settings }, req);
     const r2 = renderResult(res2, req, { ...ctxFr, zoneLabel: 'heure de New York' });
-    expect(r2.lines).toEqual(["*Disponibilités d'Alex mardi 13 octobre le matin*, créneaux d'au moins 1 h, 🇺🇸 heure de New York :", '• 🌅 *Matin* : 10h30 à 12h00']);
+    expect(r2.lines).toEqual(["*Disponibilités d'Alex mardi 13 octobre le matin*, créneaux d'au moins 1 h, 🇺🇸 heure de New York : 10h30–12h00"]);
     expect(r2.required).toEqual(['🇺🇸 heure de New York', 'Alex', 'le matin', '1 h']);
   });
 });
 
-describe('1.1.0: flags, clock style and parts of day', () => {
-  const ctxEn = { ownerName: 'Alex', lang: 'en' as const, zoneLabel: 'New York time' };
-  const settings = { noiseFloorMin: 15, listingCapDays: 10, openDays: 5 };
-  const now = t('2026-10-09T12:00', NY);
-  const busyNY = (a: string, b: string) => ({ start: t(a, NY).toUTC().toISO()!, end: t(b, NY).toUTC().toISO()! });
-
+describe('1.1.0: flags and clock style', () => {
   it('maps every zone of the table to a flag and a clock; globe and 24-hour otherwise', () => {
     expect(ZONE_COUNTRIES.size).toBeGreaterThan(400);
     for (const [zone, cc] of ZONE_COUNTRIES) {
@@ -335,40 +343,193 @@ describe('1.1.0: flags, clock style and parts of day', () => {
     expect(formatRange(t('2026-10-13T09:00'), t('2026-10-13T12:00'), 'en', '24h')).toBe('09:00 to 12:00');
   });
 
-  it('lists a day by part of day in Slack bold with emoji, and the verifier keeps every piece', async () => {
+  it('1.2.0: the compact span shares AM/PM when both ends agree', () => {
+    expect(formatSpan(t('2026-10-13T09:00', NY), t('2026-10-13T11:30', NY), 'en')).toBe('9:00–11:30 AM');
+    expect(formatSpan(t('2026-10-13T10:00', NY), t('2026-10-13T12:00', NY), 'en')).toBe('10:00 AM–12:00 PM');
+    expect(formatSpan(t('2026-10-13T19:00', NY), t('2026-10-14T01:00', NY), 'en')).toBe('7:00 PM–1:00 AM');
+    expect(formatSpan(t('2026-10-13T13:00'), t('2026-10-14T01:00'), 'en', '24h')).toBe('13:00–01:00');
+    expect(formatSpan(t('2026-10-13T13:00'), t('2026-10-14T01:00'), 'fr')).toBe('13h00–1h00');
+  });
+});
+
+describe('1.2.0: compact listings, no split at midnight, slots', () => {
+  const ctxEn = { ownerName: 'Alex', lang: 'en' as const, zoneLabel: 'New York time' };
+  const ctxParis = { ...ctxEn, zoneLabel: 'Paris time' };
+  const ctxFr = { ownerName: 'Alex', lang: 'fr' as const, zoneLabel: 'heure de Paris' };
+  const settings = { noiseFloorMin: 15, listingCapDays: 10, openDays: 5 };
+  const now = t('2026-10-09T12:00', NY);
+  // From Nov 2 both zones are on standard time: 7 AM–7 PM New York is 13:00–01:00 Paris.
+  const nowNov = t('2026-10-30T12:00', NY);
+  const horizonEnd = t('2026-11-28');
+  const busyNY = (a: string, b: string) => ({ start: t(a, NY).toUTC().toISO()!, end: t(b, NY).toUTC().toISO()! });
+  const run = (busy: ReturnType<typeof busyNY>[], req: AvailabilityRequest, schedule = newYorkAllWeek) => computeAvailability({ schedule, fetchBusy: async () => busy, settings }, req);
+
+  it('lists a single day on one line, in the compact form, without part-of-day labels', async () => {
     const req: AvailabilityRequest = { kind: 'day', zone: NY, lang: 'en', now, rangeStart: t('2026-10-13', NY), rangeEnd: t('2026-10-14', NY) };
-    const fetchBusy = async () => [busyNY('2026-10-13T09:00', '2026-10-13T13:00'), busyNY('2026-10-13T17:00', '2026-10-13T18:00')];
-    const res = await computeAvailability({ schedule: newYorkAllWeek, fetchBusy, settings }, req);
-    const r = renderResult(res, req, ctxEn);
-    expect(r.lines).toEqual([
-      "*Alex's availability Tuesday Oct 13*, 🇺🇸 New York time:",
-      '• 🌅 *Morning*: 7:00 AM to 9:00 AM',
-      '• ☀️ *Afternoon*: 1:00 PM to 5:00 PM',
-      '• 🌆 *Evening*: 6:00 PM to 7:00 PM',
-    ]);
+    const r = renderResult(await run([busyNY('2026-10-13T09:00', '2026-10-13T13:00'), busyNY('2026-10-13T17:00', '2026-10-13T18:00')], req), req, ctxEn);
+    expect(r.text).toBe("*Alex's availability Tuesday Oct 13*, 🇺🇸 New York time: 7:00–9:00 AM, 1:00–5:00 PM, 6:00–7:00 PM");
+    expect(r.lines).toHaveLength(1);
     expect(r.timeSequence).toEqual(['7:00 AM', '9:00 AM', '1:00 PM', '5:00 PM', '6:00 PM', '7:00 PM']);
     expect(r.required[0]).toBe('🇺🇸 New York time');
-    expect(verifyReply(r.text, r)).toMatchObject({ ok: true });
-    expect(verifyReply(`Here is when Alex is free Tuesday Oct 13, 🇺🇸 New York time:\n${r.lines.slice(1).join('\n')}`, r)).toMatchObject({ ok: true });
-    // The flag is part of the label and the bullets are verbatim: a reply that drops either is refused and the draft is sent.
-    expect(verifyReply(r.text.replace('🇺🇸 ', ''), r)).toMatchObject({ ok: false, reason: 'missing_required:🇺🇸 New York time' });
-    expect(verifyReply(r.text.replaceAll('*', ''), r)).toMatchObject({ ok: false, reason: 'bullet_lines' });
-    expect(verifyReply(r.text.replace('🌅', '🌄'), r)).toMatchObject({ ok: false, reason: 'bullet_lines' });
   });
 
   it('shows a European asker the 24-hour clock, also in the week when Europe has left summer time and the US has not', async () => {
     // Tue 2026-10-27: Paris is UTC+1 since Oct 25, New York UTC-4 until Nov 1, so 7:00 AM New York is 12:00 Paris.
-    const fetchBusy = async () => [busyNY('2026-10-27T09:00', '2026-10-27T13:00'), busyNY('2026-10-27T17:00', '2026-10-27T18:00')];
+    const busy = [busyNY('2026-10-27T09:00', '2026-10-27T13:00'), busyNY('2026-10-27T17:00', '2026-10-27T18:00')];
     const paris: AvailabilityRequest = { kind: 'day', zone: P, lang: 'en', now, rangeStart: t('2026-10-27'), rangeEnd: t('2026-10-28') };
-    const inParis = renderResult(await computeAvailability({ schedule: newYorkAllWeek, fetchBusy, settings }, paris), paris, { ...ctxEn, zoneLabel: 'Paris time' });
-    expect(inParis.lines).toEqual([
-      "*Alex's availability Tuesday Oct 27*, 🇫🇷 Paris time:",
-      '• ☀️ *Afternoon*: 12:00 to 14:00',
-      '• 🌆 *Evening*: 18:00 to 22:00, 23:00 to 00:00',
-    ]);
-    expect(verifyReply(inParis.text, inParis)).toMatchObject({ ok: true });
+    expect(renderResult(await run(busy, paris), paris, ctxParis).text).toBe("*Alex's availability Tuesday Oct 27*, 🇫🇷 Paris time: 12:00–14:00, 18:00–22:00, 23:00–00:00");
     const ny: AvailabilityRequest = { ...paris, zone: NY, rangeStart: t('2026-10-27', NY), rangeEnd: t('2026-10-28', NY) };
-    const inNY = renderResult(await computeAvailability({ schedule: newYorkAllWeek, fetchBusy, settings }, ny), ny, ctxEn);
-    expect(inNY.lines.slice(1)).toEqual(['• 🌅 *Morning*: 7:00 AM to 9:00 AM', '• ☀️ *Afternoon*: 1:00 PM to 5:00 PM', '• 🌆 *Evening*: 6:00 PM to 7:00 PM']);
+    expect(renderResult(await run(busy, ny), ny, ctxEn).text).toBe("*Alex's availability Tuesday Oct 27*, 🇺🇸 New York time: 7:00–9:00 AM, 1:00–5:00 PM, 6:00–7:00 PM");
+  });
+
+  it('keeps a window that crosses midnight whole, on the day it starts', async () => {
+    const busy = [busyNY('2026-11-02T10:00', '2026-11-02T10:30'), busyNY('2026-11-02T12:30', '2026-11-02T13:00'), busyNY('2026-11-03T18:30', '2026-11-03T19:00')];
+    const week: AvailabilityRequest = { kind: 'range', zone: P, lang: 'en', now: nowNov, rangeStart: t('2026-11-02'), rangeEnd: t('2026-11-05') };
+    const res = await run(busy, week);
+    const r = renderResult(res, week, ctxParis);
+    expect(r.lines).toEqual([
+      "*Alex's availability from Mon Nov 2 to Wed Nov 4*, 🇫🇷 Paris time:",
+      '• *Mon Nov 2*: 13:00–16:00, 16:30–18:30, 19:00–01:00',
+      '• *Tue Nov 3*: 13:00–00:30',
+      '• *Wed Nov 4*: ✅ all day, 13:00–01:00',
+    ]);
+    // The tail of the previous evening never shows as "00:00–01:00" on the next day, and a whole free day is still detected (R1-3).
+    expect(r.text).not.toContain('00:00–01:00');
+    expect(res.days.map((d) => d.wholeDay)).toEqual([false, false, true]);
+    const sat: AvailabilityRequest = { kind: 'day', zone: P, lang: 'en', now: nowNov, rangeStart: t('2026-11-07'), rangeEnd: t('2026-11-08') };
+    expect(renderResult(await run([], sat), sat, ctxParis).text).toBe("*Alex's availability Saturday Nov 7*, 🇫🇷 Paris time: ✅ all day, 13:00–01:00");
+    // Afternoon and evening have no end: the window is not cut at midnight either.
+    const evening: AvailabilityRequest = { kind: 'day', zone: P, lang: 'en', now: nowNov, rangeStart: t('2026-11-02'), rangeEnd: t('2026-11-03'), partOfDay: 'evening' };
+    expect(renderResult(await run([], evening), evening, ctxParis).text).toBe("*Alex's availability Monday Nov 2 in the evening*, 🇫🇷 Paris time: 18:00–01:00");
+  });
+
+  it('keeps a free hour at 00:00 after a late block on the working day it belongs to (seen live 2026-10-30)', async () => {
+    // Thursday Nov 5 (New York): busy 11:00–12:00, 13:00–16:00, 16:30–18:00; the last free hour 18:00–19:00 is 00:00–01:00 Friday in Paris.
+    const busy = [busyNY('2026-11-05T11:00', '2026-11-05T12:00'), busyNY('2026-11-05T13:00', '2026-11-05T16:00'), busyNY('2026-11-05T16:30', '2026-11-05T18:00')];
+    const req: AvailabilityRequest = { kind: 'range', zone: P, lang: 'en', now: nowNov, rangeStart: t('2026-11-05'), rangeEnd: t('2026-11-07') };
+    expect(renderResult(await run(busy, req), req, ctxParis).lines).toEqual([
+      "*Alex's availability from Thu Nov 5 to Fri Nov 6*, 🇫🇷 Paris time:",
+      '• *Thu Nov 5*: 13:00–17:00, 18:00–19:00, 22:00–22:30, 00:00–01:00',
+      '• *Fri Nov 6*: ✅ all day, 13:00–01:00',
+    ]);
+    // "Thursday evening" includes that hour; "Friday morning" does not.
+    const thuEvening: AvailabilityRequest = { ...req, kind: 'day', rangeEnd: t('2026-11-06'), partOfDay: 'evening' };
+    expect(renderResult(await run(busy, thuEvening), thuEvening, ctxParis).text).toBe("*Alex's availability Thursday Nov 5 in the evening*, 🇫🇷 Paris time: 18:00–19:00, 22:00–22:30, 00:00–01:00");
+    const friMorning: AvailabilityRequest = { ...req, kind: 'day', rangeStart: t('2026-11-06'), partOfDay: 'morning' };
+    expect(renderResult(await run(busy, friMorning), friMorning, ctxParis).text).toBe("Alex has no availability Friday Nov 6 in the morning, 🇫🇷 Paris time.");
+  });
+
+  it('"today" asked after midnight keeps what is still available from the running working day', async () => {
+    const now = t('2026-11-03T00:20'); // Paris; the New York Monday runs until 01:00
+    const req: AvailabilityRequest = { kind: 'day', zone: P, lang: 'en', now, rangeStart: t('2026-11-03'), rangeEnd: t('2026-11-04') };
+    expect(renderResult(await run([], req), req, ctxParis).text).toBe("*Alex's availability Tuesday Nov 3*, 🇫🇷 Paris time: 00:20–01:00, 13:00–01:00");
+    // Asked "tomorrow" at the same moment, the running tail is not tomorrow's.
+    const tomorrow: AvailabilityRequest = { ...req, rangeStart: t('2026-11-04'), rangeEnd: t('2026-11-05') };
+    expect(renderResult(await run([], tomorrow), tomorrow, ctxParis).text).toBe("*Alex's availability Wednesday Nov 4*, 🇫🇷 Paris time: ✅ all day, 13:00–01:00");
+  });
+
+  it('answers a point with the real end of a window crossing midnight, and one after midnight from the running day', async () => {
+    const late: AvailabilityRequest = { kind: 'point', zone: P, lang: 'en', now: nowNov, point: t('2026-11-02T23:00') };
+    expect(renderResult(await run([], late), late, ctxParis).text).toBe('Yes, Alex is free Monday Nov 2 from *23:00 to 01:00*, 🇫🇷 Paris time.');
+    const early: AvailabilityRequest = { kind: 'point', zone: P, lang: 'en', now: nowNov, point: t('2026-11-03T00:30') };
+    expect(renderResult(await run([], early), early, ctxParis).text).toBe('Yes, Alex is free Tuesday Nov 3 from *00:30 to 01:00*, 🇫🇷 Paris time.');
+    // "Next" stays on the asked day: the window starting at 13:00 the next day is not offered.
+    const busyLate: AvailabilityRequest = { kind: 'point', zone: P, lang: 'en', now: nowNov, point: t('2026-11-02T23:30') };
+    expect(renderResult(await run([busyNY('2026-11-02T17:00', '2026-11-02T19:00')], busyLate), busyLate, ctxParis).text).toBe('No, Alex is busy Monday Nov 2 at *23:30*. No other availability that day, 🇫🇷 Paris time.');
+  });
+
+  it('classifies a span: free, partly, busy with the next window, past, started, outside hours, no hours, duration', () => {
+    const working = [iv('2026-10-13T09:00', '2026-10-13T17:00')];
+    const day = { dayStart: t('2026-10-13T00:00'), dayEnd: t('2026-10-14T00:00'), now: t('2026-10-12T12:00'), noiseFloorMin: 15, working };
+    const span = iv('2026-10-13T10:00', '2026-10-13T12:00');
+    const fmt = (w: { start: DateTime; end: DateTime }) => formatRange(w.start, w.end, 'fr');
+    const free = classifySpan({ ...day, span, busy: [] });
+    expect(free.kind).toBe('free');
+    if (free.kind === 'free') expect(fmt(free.window)).toBe('10h00 à 12h00');
+    const partly = classifySpan({ ...day, span, busy: [iv('2026-10-13T10:30', '2026-10-13T11:00')] });
+    expect(partly.kind).toBe('partly');
+    if (partly.kind === 'partly') expect(partly.windows.map(fmt)).toEqual(['10h00 à 10h30', '11h00 à 12h00']);
+    // A free part under the noise floor does not count: the span is busy and the next window of the day is named.
+    const sliver = classifySpan({ ...day, span, busy: [iv('2026-10-13T10:00', '2026-10-13T11:50')] });
+    expect(sliver.kind).toBe('busy');
+    if (sliver.kind === 'busy') expect(fmt(sliver.next!)).toBe('12h00 à 17h00');
+    const busy = classifySpan({ ...day, span, busy: [iv('2026-10-13T09:00', '2026-10-13T13:00')] });
+    expect(busy.kind).toBe('busy');
+    if (busy.kind === 'busy') expect(fmt(busy.next!)).toBe('13h00 à 17h00');
+    expect(classifySpan({ ...day, span, busy: [], now: t('2026-10-13T12:30') }).kind).toBe('past');
+    const started = classifySpan({ ...day, span, busy: [], now: t('2026-10-13T10:31') });
+    expect(started.kind).toBe('free');
+    if (started.kind === 'free') expect(fmt(started.window)).toBe('10h35 à 12h00');
+    expect(classifySpan({ ...day, span: iv('2026-10-13T06:00', '2026-10-13T08:00'), busy: [] }).kind).toBe('outside_hours');
+    expect(classifySpan({ ...day, span, busy: [], working: [] }).kind).toBe('no_hours');
+    const dur = classifySpan({ ...day, span, busy: [iv('2026-10-13T10:30', '2026-10-13T11:00')], durationMin: 60 });
+    expect(dur.kind).toBe('partly');
+    if (dur.kind === 'partly') expect(dur.windows.map(fmt)).toEqual(['11h00 à 12h00']);
+  });
+
+  it('renders one verdict per asked slot, in the order asked, in English and in French', async () => {
+    // Busy (New York): Tue Nov 3 9:00–11:30 = 15:00–17:30 Paris; Wed Nov 4 8:00–8:30 = 14:00–14:30 Paris; Thu Nov 5 all day.
+    const busy = [busyNY('2026-11-03T09:00', '2026-11-03T11:30'), busyNY('2026-11-04T08:00', '2026-11-04T08:30'), busyNY('2026-11-05T07:00', '2026-11-05T19:00')];
+    const en: AvailabilityRequest = {
+      kind: 'slots', zone: P, lang: 'en', now: nowNov, horizonEnd,
+      slots: [
+        { start: t('2026-11-03T16:00') }, { start: t('2026-11-04T11:30') }, { start: t('2026-11-04T13:30') }, { start: t('2026-11-05T14:00') },
+        { start: t('2026-10-29T10:00') }, { start: t('2026-12-01T10:00') },
+        { start: t('2026-11-04T13:00'), end: t('2026-11-04T15:00') }, { start: t('2026-11-04T17:00'), end: t('2026-11-04T18:00') }, { start: t('2026-11-05T13:00'), end: t('2026-11-05T15:00') },
+      ],
+    };
+    const r = renderResult(await run(busy, en), en, { ...ctxParis, horizonWeeks: 4 });
+    expect(r.lines).toEqual([
+      "*Alex's availability*, 🇫🇷 Paris time:",
+      '• *Tue Nov 3, 16:00*: ❌ busy, next free 17:30–01:00',
+      "• *Wed Nov 4, 11:30*: outside Alex's usual hours",
+      '• *Wed Nov 4, 13:30*: ✅ free until 14:00',
+      '• *Thu Nov 5, 14:00*: ❌ busy',
+      '• *Thu Oct 29, 10:00*: already past',
+      '• *Tue Dec 1, 10:00*: more than 4 weeks ahead',
+      '• *Wed Nov 4, 13:00–15:00*: ⚠️ partly free: 13:00–14:00, 14:30–15:00',
+      '• *Wed Nov 4, 17:00–18:00*: ✅ free',
+      '• *Thu Nov 5, 13:00–15:00*: ❌ busy',
+    ]);
+    expect(r.required).toEqual(['🇫🇷 Paris time', 'Alex']);
+    expect(r.polarity).toBeNull();
+    const fr: AvailabilityRequest = { ...en, lang: 'fr', slots: en.slots!.slice(0, 3).concat(en.slots![6]!, en.slots![3]!) };
+    expect(renderResult(await run(busy, fr), fr, ctxFr).lines).toEqual([
+      "*Disponibilités d'Alex*, 🇫🇷 heure de Paris :",
+      '• *mardi 3 novembre, 16h00* : ❌ pas disponible, prochain créneau 17h30–1h00',
+      "• *mercredi 4 novembre, 11h30* : en dehors des heures habituelles d'Alex",
+      "• *mercredi 4 novembre, 13h30* : ✅ disponible jusqu'à 14h00",
+      '• *mercredi 4 novembre, 13h00–15h00* : ⚠️ en partie : 13h00–14h00, 14h30–15h00',
+      '• *jeudi 5 novembre, 14h00* : ❌ pas disponible',
+    ]);
+  });
+
+  it('renders slot verdicts with a duration, a day without hours and busy spans', async () => {
+    const busy = [busyNY('2026-11-03T09:00', '2026-11-03T11:30'), busyNY('2026-11-04T08:00', '2026-11-04T08:30'), busyNY('2026-11-05T07:00', '2026-11-05T19:00')];
+    const dur: AvailabilityRequest = { kind: 'slots', zone: NY, lang: 'en', now: nowNov, horizonEnd, durationMin: 60, slots: [{ start: t('2026-11-04T07:00', NY) }, { start: t('2026-11-03T08:30', NY) }, { start: t('2026-11-05T10:00', NY) }] };
+    const r = renderResult(await run(busy, dur), dur, ctxEn);
+    expect(r.lines).toEqual([
+      "*Alex's availability*, windows of at least 1 hour, 🇺🇸 New York time:",
+      '• *Wed Nov 4, 7:00 AM*: ✅ free until 8:00 AM',
+      '• *Tue Nov 3, 8:30 AM*: ⚠️ free only until 9:00 AM; next window of at least 1 hour: 11:30 AM–7:00 PM',
+      '• *Thu Nov 5, 10:00 AM*: ❌ busy',
+    ]);
+    expect(r.required).toEqual(['🇺🇸 New York time', 'Alex', '1 hour']);
+    const weekdays = { ...newYorkAllWeek, availability: [{ days: ['Monday' as const, 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], startTime: '09:00', endTime: '18:00' }] };
+    const spans: AvailabilityRequest = { kind: 'slots', zone: NY, lang: 'en', now: nowNov, horizonEnd, slots: [{ start: t('2026-11-07T10:00', NY) }, { start: t('2026-11-03T12:00', NY), end: t('2026-11-03T16:00', NY) }, { start: t('2026-11-03T16:00', NY), end: t('2026-11-03T18:00', NY) }] };
+    expect(renderResult(await run([busyNY('2026-11-03T12:00', '2026-11-03T16:00')], spans, weekdays), spans, ctxEn).lines).toEqual([
+      "*Alex's availability*, 🇺🇸 New York time:",
+      '• *Sat Nov 7, 10:00 AM*: does not take meetings that day',
+      '• *Tue Nov 3, 12:00–4:00 PM*: ❌ busy, next free 4:00–6:00 PM',
+      '• *Tue Nov 3, 4:00–6:00 PM*: ✅ free',
+    ]);
+  });
+
+  it('skips the busy lookup when no slot needs one', async () => {
+    let fetched = 0;
+    const req: AvailabilityRequest = { kind: 'slots', zone: NY, lang: 'en', now: nowNov, horizonEnd, slots: [{ start: t('2026-10-29T10:00', NY) }, { start: t('2026-12-01T10:00', NY) }] };
+    const res = await computeAvailability({ schedule: newYorkAllWeek, fetchBusy: async () => (fetched++, []), settings }, req);
+    expect(fetched).toBe(0);
+    expect(res.slots!.map((s) => s.verdict.kind)).toEqual(['past', 'beyond_horizon']);
   });
 });

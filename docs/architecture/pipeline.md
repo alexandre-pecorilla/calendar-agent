@@ -22,10 +22,14 @@ injected "now") and the raw text.
    Slack locale, else English.
 6. **Request building**: dates interpreted in the zone; past → fixed; start
    beyond the horizon (28 days) → fixed; end clipped to the horizon; a
-   single-day range becomes a day question.
+   single-day range becomes a day question. Slots (1.2.0): every start must
+   parse, a span must end after its start and within a day, duplicates are
+   dropped; the fixed "past" or "horizon" reply only when every slot is past
+   or every slot is beyond the horizon, otherwise each slot gets its own line.
 7. **Availability** (`docs/architecture/availability.md`) with busy times of
    the selected calendars, fetched fresh.
-8. **Render** deterministically, then **phrase** (call 2) and **verify**.
+8. **Render** deterministically. A yes/no answer is then **phrased** (call 2)
+   and **verified**; a listing or a slots answer is posted as rendered (1.2.0).
 9. **Log** one row in `queries` with the question, interpretation, answer,
    zone, language, latency, tokens, cost and error code. Container logs get
    ids and numbers only.

@@ -29,6 +29,20 @@ export function formatRange(a: DateTime, b: DateTime, lang: Lang, clock: ClockSt
   return lang === 'fr' ? `${formatTime(a, lang, clock)} à ${formatTime(b, lang, clock)}` : `${formatTime(a, lang, clock)} to ${formatTime(b, lang, clock)}`;
 }
 
+/**
+ * The compact form of a listing (1.2.0): EN "7:00–10:00 AM" when both ends
+ * share AM or PM, "10:30 AM–7:00 PM" otherwise, "13:00–16:00" on a 24-hour
+ * clock, FR "13h00–16h00". Listings are never rephrased by the model, so this
+ * form never meets the verifier.
+ */
+export function formatSpan(a: DateTime, b: DateTime, lang: Lang, clock: ClockStyle = '12h'): string {
+  if (lang === 'fr' || clock === '24h') return `${formatTime(a, lang, clock)}–${formatTime(b, lang, clock)}`;
+  const ta = a.setLocale('en-US');
+  const tb = b.setLocale('en-US');
+  const head = ta.toFormat('a') === tb.toFormat('a') ? ta.toFormat('h:mm') : ta.toFormat('h:mm a');
+  return `${head}–${tb.toFormat('h:mm a')}`;
+}
+
 export function formatDuration(min: number, lang: Lang): string {
   const h = Math.floor(min / 60);
   const m = min % 60;

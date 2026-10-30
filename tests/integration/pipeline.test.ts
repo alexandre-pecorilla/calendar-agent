@@ -93,7 +93,8 @@ beforeEach(() => {
 });
 
 const ctx = (over: Partial<Parameters<AnswerPipeline['ask']>[0]> = {}) => ({ userId: 'U1', userName: 'Bob', workspaceId: 'T1', workspaceName: 'Acme', entryPoint: 'dm' as const, askerTz: NY, askerLocale: 'en-US', now: NOW, ...over });
-const parse = (over: Record<string, unknown>) => ({ intent: 'point', language: 'en', timezone_override: null, point_time: null, range_start: null, range_end: null, excluded_weekdays: [], part_of_day: null, duration_minutes: null, ...over });
+const parse = (over: Record<string, unknown>) => ({ intent: 'point', language: 'en', timezone_override: null, point_time: null, slots: null, range_start: null, range_end: null, excluded_weekdays: [], part_of_day: null, duration_minutes: null, ...over });
+const modelCalls = () => hits.filter((h) => h.endsWith('/chat/completions')).length;
 
 describe('AnswerPipeline', () => {
   it('answers a point question from the draft when the phrasing drifts, and logs the query', async () => {
@@ -142,7 +143,47 @@ describe('AnswerPipeline', () => {
     expect(r.debug.zoneSource).toBe('override');
     expect(r.text).toContain('heure de Paris');
     expect(r.text).toContain("Disponibilités d'Alex mardi 13 octobre");
-    expect(r.text).toContain('18h00 à 0h00');
+    expect(r.text).toContain('18h00–0h00');
+  });
+
+  it('1.2.0: answers the asked slots one by one, deduplicated, without the phrase call', async () => {
+    scriptedParse = parse({ intent: 'slots', slots: [{ start: '2026-10-12T16:00', end: null }, { start: '2026-10-13T10:00', end: null }, { start: '2026-10-12T16:00', end: null }, { start: '2026-10-13T13:00', end: '2026-10-13T15:00' }, { start: '2026-10-17T10:00', end: null }] });
+    const r = await pipeline.ask(ctx(), 'x');
+    expect(r.intent).toBe('slots');
+    expect(r.text).toBe(["*Alex's availability*, 🇺🇸 New York time:", '• *Mon Oct 12, 4:00 PM*: ✅ free until 5:30 PM', '• *Tue Oct 13, 10:00 AM*: ❌ busy, next free 12:00–6:00 PM', '• *Tue Oct 13, 1:00–3:00 PM*: ✅ free', '• *Sat Oct 17, 10:00 AM*: does not take meetings that day'].join('\n'));
+    expect(r.debug.phrased).toBe(false);
+    expect(r.debug.verification).toBe('skipped');
+    expect(modelCalls()).toBe(1);
+    expect(repos.queries.get(r.queryId)!.intent).toBe('slots');
+  });
+
+  it('1.2.0: validates slots: all past → past, all beyond → horizon, a bad span or no list → clarify, a mix → one line each', async () => {
+    scriptedParse = parse({ intent: 'slots', slots: [{ start: '2026-10-01T10:00', end: null }] });
+    expect((await pipeline.ask(ctx(), 'x')).text).toContain('already in the past');
+    scriptedParse = parse({ intent: 'slots', slots: [{ start: '2027-01-10T10:00', end: null }] });
+    expect((await pipeline.ask(ctx(), 'x')).text).toContain('4 weeks ahead');
+    scriptedParse = parse({ intent: 'slots', slots: [{ start: '2026-10-13T15:00', end: '2026-10-13T13:00' }] });
+    expect((await pipeline.ask(ctx(), 'x')).text).toContain("didn't understand");
+    scriptedParse = parse({ intent: 'slots', slots: null });
+    expect((await pipeline.ask(ctx(), 'x')).text).toContain("didn't understand");
+    scriptedParse = parse({ intent: 'slots', slots: [{ start: '2026-10-01T10:00', end: null }, { start: '2027-01-10T10:00', end: null }, { start: '2026-10-12T16:00', end: null }] });
+    const r = await pipeline.ask(ctx(), 'x');
+    expect(r.text).toContain(': already past');
+    expect(r.text).toContain(': more than 4 weeks ahead');
+    expect(r.text).toContain(': ✅ free until 5:30 PM');
+  });
+
+  it('1.2.0: a listing makes one model call and is posted as rendered; a yes/no answer still makes two', async () => {
+    scriptedParse = parse({ intent: 'day', range_start: '2026-10-12', range_end: '2026-10-12' });
+    const day = await pipeline.ask(ctx(), 'x');
+    expect(day.text).toBe("*Alex's availability Monday Oct 12*, 🇺🇸 New York time: 9:00 AM–5:30 PM");
+    expect(day.debug.verification).toBe('skipped');
+    expect(modelCalls()).toBe(1);
+    hits.length = 0;
+    scriptedParse = parse({ point_time: '2026-10-12T16:00' });
+    scriptedPhrase = 'Good news: Alex is free Monday Oct 12 from 4:00 PM to 5:30 PM, 🇺🇸 New York time.';
+    expect((await pipeline.ask(ctx(), 'x')).debug.phrased).toBe(true);
+    expect(modelCalls()).toBe(2);
   });
 
   it('validates dates: past, beyond horizon, inverted, missing', async () => {
@@ -234,10 +275,10 @@ describe('AnswerPipeline', () => {
   });
 
   it('over 100 varied questions, only allowlisted GET paths are ever requested', async () => {
-    const intents = ['point', 'day', 'range', 'open', 'other_person', 'self', 'booking', 'off_topic', 'help'];
+    const intents = ['point', 'slots', 'day', 'range', 'open', 'other_person', 'self', 'booking', 'off_topic', 'help'];
     for (let i = 0; i < 100; i++) {
       const intent = intents[i % intents.length]!;
-      scriptedParse = parse({ intent, point_time: intent === 'point' ? '2026-10-12T16:00' : null, range_start: intent === 'day' || intent === 'range' ? '2026-10-12' : null, range_end: intent === 'day' ? '2026-10-12' : intent === 'range' ? '2026-10-16' : null });
+      scriptedParse = parse({ intent, point_time: intent === 'point' ? '2026-10-12T16:00' : null, slots: intent === 'slots' ? [{ start: '2026-10-12T16:00', end: null }, { start: '2026-10-13T13:00', end: '2026-10-13T15:00' }] : null, range_start: intent === 'day' || intent === 'range' ? '2026-10-12' : null, range_end: intent === 'day' ? '2026-10-12' : intent === 'range' ? '2026-10-16' : null });
       await pipeline.ask(ctx({ userId: `U${i}`, entryPoint: 'sandbox' }), `question ${i}`);
     }
     const calcomHits = hits.filter((h) => !h.endsWith('/chat/completions'));

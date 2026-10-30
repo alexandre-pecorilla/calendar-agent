@@ -79,6 +79,7 @@ describe.skipIf(!key)('DeepSeek live: corpus and injections', () => {
       if (line.excluded && JSON.stringify(p?.excluded_weekdays) !== JSON.stringify(line.excluded)) problems.push(`excluded ${JSON.stringify(p?.excluded_weekdays)}`);
       if (line.duration && p?.duration_minutes !== line.duration) problems.push(`duration ${p?.duration_minutes}`);
       if (line.part && p?.part_of_day !== line.part) problems.push(`part ${p?.part_of_day}`);
+      if (line.slots && JSON.stringify(p?.slots?.map((s) => [s.start, s.end])) !== JSON.stringify(line.slots)) problems.push(`slots ${JSON.stringify(p?.slots)}`);
       if (r.language !== line.lang) problems.push(`language ${r.language} ≠ ${line.lang}`);
       cost += r.debug.costUsd;
       latencies.push(r.debug.latencyMs);

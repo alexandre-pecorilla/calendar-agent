@@ -13,6 +13,8 @@ export interface CorpusLine {
   excluded?: string[];
   duration?: number;
   part?: 'morning' | 'afternoon' | 'evening';
+  /** Expected slots as [start, end | null], in the order asked (1.2.0). */
+  slots?: Array<[string, string | null]>;
   askerTz?: string;
 }
 
@@ -52,7 +54,14 @@ export const CORPUS: CorpusLine[] = [
   { text: 'Il est dispo le 15 à 14h ?', lang: 'fr', expect: ['point'], point: '2026-10-15T14:00' },
   { text: 'Des disponibilités cette semaine ?', lang: 'fr', expect: ['range', 'open'], range: ['2026-10-09', '2026-10-11'] },
   { text: 'Est-ce qu\'il est libre lundi 9h heure de Paris ?', lang: 'fr', expect: ['point'], point: '2026-10-12T09:00', tz: 'Europe/Paris' },
-  { text: 'Dispo mardi entre 14h et 16h ?', lang: 'fr', expect: ['day', 'range', 'point'] },
+  { text: 'Dispo mardi entre 14h et 16h ?', lang: 'fr', expect: ['slots', 'day', 'range', 'point'] },
+  // 1.2.0: several asked moments or spans in one question.
+  { text: 'Could Alex do Tuesday at 4 or Wednesday at 11:30?', lang: 'en', expect: ['slots'], slots: [['2026-10-13T16:00', null], ['2026-10-14T11:30', null]] },
+  { text: 'Is Alex free at these times: Monday 12 to 4, Thursday 3pm?', lang: 'en', expect: ['slots'], slots: [['2026-10-12T12:00', '2026-10-12T16:00'], ['2026-10-15T15:00', null]] },
+  // Bilingual, as pasted from a French counterpart: the slots and the zone are what matter; the model answers in French (live 2026-10-30).
+  { text: 'Is Alex free at these times, in Paris time? Mardi 13/10/26 à 16h00, Mercredi 14/10/26 à 11h30 ou 13h30', lang: 'fr', expect: ['slots'], tz: 'Europe/Paris', slots: [['2026-10-13T16:00', null], ['2026-10-14T11:30', null], ['2026-10-14T13:30', null]] },
+  { text: 'Alex est dispo mardi à 16h ou mercredi à 11h30 ?', lang: 'fr', expect: ['slots'], slots: [['2026-10-13T16:00', null], ['2026-10-14T11:30', null]] },
+  { text: 'Lundi 14h, mardi 10h ou jeudi 15h30, lequel convient à Alex ?', lang: 'fr', expect: ['slots'], slots: [['2026-10-12T14:00', null], ['2026-10-13T10:00', null], ['2026-10-15T15:30', null]] },
   { text: 'lundi 16h', lang: 'fr', expect: ['point'], point: '2026-10-12T16:00' },
   { text: "Alex, t'es dispo quand la semaine prochaine ?", lang: 'fr', expect: ['range'], range: ['2026-10-12', '2026-10-18'] },
   { text: 'Vous êtes disponible lundi après-midi ?', lang: 'fr', expect: ['day'], range: ['2026-10-12', '2026-10-12'], part: 'afternoon' },

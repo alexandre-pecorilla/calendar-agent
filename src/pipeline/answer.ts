@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { computeAvailability, type AvailabilityRequest } from '../availability/engine.js';
+import { computeAvailability, type AvailabilityRequest, type Slot } from '../availability/engine.js';
 import { formatRange } from '../availability/format.js';
 import { renderResult } from '../availability/render.js';
 import { isValidZone, normalizeZoneOverride, resolveZone, zoneLabel, type Lang, type ZoneSource } from '../availability/timezone.js';
@@ -125,8 +125,8 @@ export class AnswerPipeline {
       error: null,
     };
     const horizonDays = settings.getNumber('horizon_days');
-    const fixed = (kind: FixedKind, lang: Lang = language) =>
-      fixedReply(kind, lang, { ownerName: config.ownerName, botName: config.botName, horizonWeeks: Math.max(1, Math.round(horizonDays / 7)) });
+    const horizonWeeks = Math.max(1, Math.round(horizonDays / 7));
+    const fixed = (kind: FixedKind, lang: Lang = language) => fixedReply(kind, lang, { ownerName: config.ownerName, botName: config.botName, horizonWeeks });
 
     let intent = 'unknown';
     let text: string;
@@ -192,13 +192,21 @@ export class AnswerPipeline {
               );
               debug.busyCount = result.busyCount;
               debug.windows = result.days.flatMap((d) => d.windows.map((w) => `${d.day.toISODate()} ${formatRange(w.start, w.end, 'en')}`));
-              const draft = renderResult(result, req, { ownerName: config.ownerName, lang: language, zoneLabel: zoneLabel(zone, language) });
+              const draft = renderResult(result, req, { ownerName: config.ownerName, lang: language, zoneLabel: zoneLabel(zone, language), horizonWeeks });
               debug.draft = draft.text;
-              const phrased = await phraseReply(this.deps.deepseek, { ownerName: config.ownerName, lang: language, draft });
-              addUsage(phrased.usage);
-              debug.phrased = phrased.phrased;
-              debug.verification = phrased.verification;
-              text = phrased.text;
+              if (req.kind === 'point') {
+                const phrased = await phraseReply(this.deps.deepseek, { ownerName: config.ownerName, lang: language, draft });
+                addUsage(phrased.usage);
+                debug.phrased = phrased.phrased;
+                debug.verification = phrased.verification;
+                text = phrased.text;
+              } else {
+                // Listings and slot verdicts are posted as rendered (1.2.0): the
+                // rewrite had to keep every bullet verbatim, so it changed nothing
+                // visible and cost a second or two per answer.
+                debug.verification = 'skipped';
+                text = draft.text;
+              }
             }
           }
         }
@@ -252,6 +260,30 @@ export class AnswerPipeline {
       if (!point.isValid) return { fixed: 'clarify' };
       if (point >= horizonEnd) return { fixed: 'beyond_horizon' };
       return { kind: 'point', zone, lang, now, point, durationMin: p.duration_minutes };
+    }
+    if (p.intent === 'slots') {
+      if (!p.slots?.length) return { fixed: 'clarify' };
+      const slots: Slot[] = [];
+      const seen = new Set<string>();
+      for (const s of p.slots) {
+        const start = DateTime.fromISO(s.start, { zone });
+        if (!start.isValid) return { fixed: 'clarify' };
+        let end: DateTime | undefined;
+        if (s.end) {
+          end = DateTime.fromISO(s.end, { zone });
+          // A span ends after it starts and within a day; anything else is a misread, not a guess.
+          if (!end.isValid || end <= start || end.diff(start, 'hours').hours > 24) return { fixed: 'clarify' };
+        }
+        const key = `${s.start}/${s.end ?? ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        slots.push({ start, end });
+      }
+      const nowMin = now.setZone(zone).startOf('minute');
+      const past = (s: Slot) => (s.end ? s.end <= nowMin : s.start < nowMin);
+      if (slots.every(past)) return { fixed: 'past' };
+      if (slots.every((s) => s.start >= horizonEnd)) return { fixed: 'beyond_horizon' };
+      return { kind: 'slots', zone, lang, now, slots, durationMin: p.duration_minutes, horizonEnd };
     }
     if (p.intent === 'open') {
       return { kind: 'open', zone, lang, now, durationMin: p.duration_minutes, partOfDay: p.part_of_day };

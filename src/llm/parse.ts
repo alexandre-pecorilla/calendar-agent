@@ -3,7 +3,9 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 import type { DeepSeekClient, Usage } from './deepseek.js';
 
-export const INTENTS = ['point', 'day', 'range', 'open', 'other_person', 'self', 'booking', 'help', 'off_topic'] as const;
+export const INTENTS = ['point', 'slots', 'day', 'range', 'open', 'other_person', 'self', 'booking', 'help', 'off_topic'] as const;
+/** The most slots one question may ask about (1.2.0). */
+export const SLOTS_MAX = 10;
 export type Intent = (typeof INTENTS)[number];
 const WEEKDAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
@@ -12,18 +14,25 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const lower = (v: unknown) => (typeof v === 'string' ? v.trim().toLowerCase() : v);
 /** "2026-10-12T16:00:00" or "…T16:00Z" → "2026-10-12T16:00" (local time; an explicit offset is ignored, the zone comes from the question or the asker). */
 const localMinute = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v.trim()) ? v.trim().slice(0, 16) : v);
+const localTime = z.preprocess(localMinute, z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/));
 
 /**
  * Field-level normalisation before validation (R1-7): weekday names and the
  * part of day are lower-cased, a point time keeps its first sixteen characters.
  * An unrecognised weekday makes the whole list invalid (→ clarification)
- * rather than silently widening the question.
+ * rather than silently widening the question; so does a malformed slot list.
  */
 export const parsedQuestionSchema = z.object({
   intent: z.enum(INTENTS),
   language: z.preprocess(lower, z.enum(['en', 'fr', 'other'])).catch('other'),
   timezone_override: z.string().trim().min(1).nullable().catch(null),
-  point_time: z.preprocess(localMinute, z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)).nullable().catch(null),
+  point_time: localTime.nullable().catch(null),
+  slots: z
+    .array(z.object({ start: localTime, end: localTime.nullable().catch(null) }))
+    .min(1)
+    .max(SLOTS_MAX)
+    .nullable()
+    .catch(null),
   range_start: date.nullable().catch(null),
   range_end: date.nullable().catch(null),
   excluded_weekdays: z.preprocess((v) => (Array.isArray(v) ? v.map(lower) : v), z.array(z.enum(WEEKDAY_NAMES))).nullable().catch(null),

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import { estimateCost, isPeak } from '../../src/llm/deepseek.js';
-import { buildParsePrompt, parsedQuestionSchema, weekdayNumber } from '../../src/llm/parse.js';
+import { buildParsePrompt, parsedQuestionSchema, SLOTS_MAX, weekdayNumber } from '../../src/llm/parse.js';
 import { extractTimeTokens, verifyReply } from '../../src/llm/verify.js';
 import { fixedReply } from '../../src/pipeline/fixed-replies.js';
 import { neutralizeControlTokens } from '../../src/security/control-tokens.js';
@@ -46,6 +46,16 @@ describe('parsed question schema', () => {
     expect(parsedQuestionSchema.safeParse({ ...base, intent: 'delete_everything' }).success).toBe(false);
     expect(parsedQuestionSchema.safeParse({}).success).toBe(false);
   });
+  it('1.2.0: accepts a slot list and drops a malformed, empty or oversized one (→ clarification)', () => {
+    const s = parsedQuestionSchema.parse({ ...base, intent: 'slots', point_time: null, slots: [{ start: '2026-10-13T16:00:00', end: null }, { start: '2026-10-14T11:30', end: '2026-10-14T13:00Z' }] });
+    expect(s.intent).toBe('slots');
+    expect(s.slots).toEqual([{ start: '2026-10-13T16:00', end: null }, { start: '2026-10-14T11:30', end: '2026-10-14T13:00' }]);
+    expect(parsedQuestionSchema.parse(base).slots).toBeNull(); // key absent
+    expect(parsedQuestionSchema.parse({ ...base, slots: [] }).slots).toBeNull();
+    expect(parsedQuestionSchema.parse({ ...base, slots: [{ start: 'noon', end: null }] }).slots).toBeNull();
+    expect(parsedQuestionSchema.parse({ ...base, slots: [{ start: '2026-10-13T16:00', end: 'later' }] }).slots).toEqual([{ start: '2026-10-13T16:00', end: null }]);
+    expect(parsedQuestionSchema.parse({ ...base, slots: Array.from({ length: SLOTS_MAX + 1 }, () => ({ start: '2026-10-13T16:00', end: null })) }).slots).toBeNull();
+  });
   it('maps weekday names and builds the prompt from configuration only', () => {
     expect(weekdayNumber('monday')).toBe(1);
     expect(weekdayNumber('sunday')).toBe(7);
@@ -56,6 +66,7 @@ describe('parsed question schema', () => {
     expect(prompt).toContain('today is 2026-10-09');
     expect(prompt).toContain('timezone Europe/Paris');
     expect(prompt).toContain('json');
+    expect(prompt).toContain('"slots"');
     expect(prompt).not.toContain('{{');
   });
 });

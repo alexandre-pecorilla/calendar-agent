@@ -16,20 +16,35 @@ owner's zone) and asks for one JSON object; the word "json" and two examples
 are in the prompt as DeepSeek's JSON mode requires. The user message is the
 sanitised question only.
 
-Output schema (zod, `parsedQuestionSchema`): `intent` ∈ point | day | range |
-open | other_person | self | booking | help | off_topic; `language` ∈ en | fr |
-other; `timezone_override` IANA or null; `point_time` `YYYY-MM-DDTHH:MM`;
+Output schema (zod, `parsedQuestionSchema`): `intent` ∈ point | slots | day |
+range | open | other_person | self | booking | help | off_topic; `language` ∈
+en | fr | other; `timezone_override` IANA or null; `point_time`
+`YYYY-MM-DDTHH:MM`; `slots` (1.2.0) a list of 1 to 10 `{start, end | null}`
+local times, one per asked moment or span, in the order asked;
 `range_start`/`range_end` `YYYY-MM-DD`; `excluded_weekdays`; `part_of_day`;
 `duration_minutes` 5–720. Field-level failures fall back to null (`.catch`),
 an invalid `intent` or non-JSON output yields the clarification reply. The
 pipeline then validates semantics: past, beyond the horizon, end before start,
-missing fields.
+missing fields, a span that ends before it starts or lasts over a day.
+
+"slots" is the intent for a question that names several times at once
+("Tuesday at 4 or Wednesday at 11:30?", "Mardi 03/11 à 16h00, mercredi 04/11 à
+11h30 ou 13h30") or one span with two ends ("Monday between 2 and 4"). Before
+1.2.0 the schema held one `point_time` only, so such a question was either
+answered for its first time alone or collapsed into a `range` that listed the
+whole availability of those days.
 
 Any grammatical person refers to the owner; "other_person" and "self" are the
 only subjects that produce a fixed refusal. Aliases only widen the set of
 names that mean the owner.
 
 ## Call 2 — phrase (`src/llm/phrase.ts`, prompt `prompts/phrase.md`)
+
+**Only a yes/no answer (`point`) goes through this call since 1.2.0.** A day
+or range listing and a slots answer are posted exactly as rendered: the
+rewrite had to keep every bullet line verbatim, so it changed nothing visible
+on them and cost a second or two per answer. The sandbox and the query log
+show `verification: skipped` for those.
 
 Receives the deterministic draft produced by the renderer and nothing else:
 the asker's question never reaches it. It may add one lead sentence and must

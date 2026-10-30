@@ -39,7 +39,7 @@ export function fixedReply(kind: FixedKind, lang: Lang, p: FixedParams): string 
       case 'off_topic':
         return `Je peux seulement dire quand ${o} est disponible ou non.`;
       case 'help':
-        return `Demandez-moi quand ${o} est disponible, par exemple : « ${o} est dispo lundi à 16h ? », « Disponibilités ${de} la semaine prochaine sauf mercredi ? », « Une heure mardi ? ». Je réponds dans votre langue et votre fuseau horaire. Je ne réserve jamais rien.`;
+        return `Demandez-moi quand ${o} est disponible, par exemple : « ${o} est dispo lundi à 16h ? », « mardi 16h ou mercredi 11h30 ? », « Disponibilités ${de} la semaine prochaine sauf mercredi ? », « Une heure mardi ? ». Je réponds dans votre langue et votre fuseau horaire. Je ne réserve jamais rien.`;
       case 'clarify':
         return `Je n'ai pas compris de quel jour ou de quelle heure vous parlez. Essayez par exemple « lundi à 16h » ou « la semaine prochaine ».`;
       case 'rate_limited':
@@ -65,7 +65,7 @@ export function fixedReply(kind: FixedKind, lang: Lang, p: FixedParams): string 
     case 'off_topic':
       return `I can only tell you when ${o} is free or busy.`;
     case 'help':
-      return `Ask me when ${o} is available, for example: "Is ${o} free Monday at 4 pm?", "${poss} availability next week except Wednesday?", "Do you have an hour on Tuesday?". I answer in your language and timezone. I never book anything.`;
+      return `Ask me when ${o} is available, for example: "Is ${o} free Monday at 4 pm?", "Tuesday at 4 or Wednesday at 11:30?", "${poss} availability next week except Wednesday?", "Do you have an hour on Tuesday?". I answer in your language and timezone. I never book anything.`;
     case 'clarify':
       return `I didn't understand which day or time you mean. Try something like "Monday at 4 pm" or "next week".`;
     case 'rate_limited':

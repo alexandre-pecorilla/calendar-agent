@@ -23,6 +23,7 @@ et « <prénom> est disponible lundi ? » désignent tous le propriétaire.
 ## Ce que vous pouvez demander
 
 - Un moment : « <prénom> est disponible lundi à 16h ? », « demain à 10h ? »
+- Plusieurs horaires à la fois : « mardi à 16h ou mercredi à 11h30 ? », « lundi de 12h à 16h, jeudi 15h ? » donne une ligne par horaire, oui ou non, et rien d'autre. Collez les horaires proposés par votre interlocuteur et nommez leur fuseau.
 - Une journée : « Quand <prénom> est libre mardi ? », « jeudi matin ? » (le matin avant midi, l'après-midi à partir de midi, le soir à partir de 18h)
 - Une période : « Disponibilités de <prénom> la semaine prochaine sauf mercredi ? », « un créneau dans les deux prochaines semaines ? »
 - Sans date : « Quand <prénom> est dispo ? » donne les cinq prochains jours ouvrés.
@@ -36,20 +37,25 @@ Posez la question en français ou en anglais ; le bot répond dans votre langue.
 ```
 Oui, Alex est disponible lundi 12 octobre de *16h00 à 17h30*, 🇫🇷 heure de Paris.
 
-*Disponibilités d'Alex mardi 13 octobre*, 🇫🇷 heure de Paris :
-• 🌅 *Matin* : 9h00 à 11h30
-• ☀️ *Après-midi* : 14h00 à 17h00
+*Disponibilités d'Alex*, 🇫🇷 heure de Paris :
+• *mardi 3 novembre, 16h00* : ❌ pas disponible, prochain créneau 17h30–18h00
+• *mercredi 4 novembre, 11h30* : en dehors des heures habituelles d'Alex
+• *mercredi 4 novembre, 13h30* : ✅ disponible jusqu'à 14h00
+• *mercredi 4 novembre, 13h00–15h00* : ⚠️ en partie : 13h00–14h00, 14h30–15h00
+
+*Disponibilités d'Alex mardi 13 octobre*, 🇫🇷 heure de Paris : 9h00–11h30, 14h00–17h00
 
 *Disponibilités d'Alex du lundi 12 octobre au vendredi 16 octobre (sauf mercredi)*, 🇫🇷 heure de Paris :
-• *lundi 12 octobre* : 🌅 9h00 à 11h30 · ☀️ 14h00 à 17h00
-• *mardi 13 octobre* : 🌅 10h00 à 12h00
-• *jeudi 15 octobre* : ✅ toute la journée, 9h00 à 18h00
+• *lundi 12 octobre* : 9h00–11h30, 14h00–17h00
+• *mardi 13 octobre* : 10h00–12h00
+• *jeudi 15 octobre* : ✅ toute la journée, 9h00–18h00
 • *vendredi 16 octobre* : aucune disponibilité
 ```
 
-Slack affiche `*…*` en gras. Une journée est découpée par moment : 🌅 matin
-(avant midi), ☀️ après-midi (de midi à 18h), 🌆 soir (à partir de 18h). Sur
-plusieurs jours, les mêmes emoji marquent les moments sur chaque ligne.
+Slack affiche `*…*` en gras. Une journée tient sur une ligne, plusieurs jours
+sur une ligne par jour. La journée de travail du propriétaire est listée sur
+le jour où elle commence dans votre fuseau, même si elle dépasse minuit
+(« 19h00–1h00 »).
 
 Les heures sont dans **votre** fuseau horaire, celui de votre profil Slack, et
 le fuseau est toujours écrit dans la réponse, avec le drapeau de son pays. En
